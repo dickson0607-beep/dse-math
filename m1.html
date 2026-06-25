@@ -366,3 +366,150 @@
                 checklist.innerHTML += `
                     <div class="year-section">
                         <h3 class="year-title">${year} 年</h3>
+                        <div class="papers-grid">
+                            ${paperHTML}
+                        </div>
+                    </div>
+                `;
+            }
+
+            select.addEventListener('change', (e) => {
+                currentStudent = e.target.value;
+                document.getElementById('checklist-container').style.display = currentStudent ? 'block' : 'none';
+                if(currentStudent) loadPersonalChecklist();
+            });
+        }
+
+        window.toggleTask = function(checkbox) {
+            if (!currentStudent) return;
+            const taskId = checkbox.getAttribute('data-task-id');
+            const isChecked = checkbox.checked;
+            
+            // 【重要修改】：寫入 m1_progress 避免與原本 Math 衝突
+            const taskRef = ref(db, 'm1_progress/' + currentStudent + '/' + taskId);
+            set(taskRef, isChecked);
+
+            if(!globalData[currentStudent]) globalData[currentStudent] = {};
+            globalData[currentStudent][taskId] = isChecked;
+            updateDashboard();
+        }
+
+        function loadPersonalChecklist() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            const studentData = globalData[currentStudent] || {};
+            checkboxes.forEach(cb => {
+                const taskId = cb.getAttribute('data-task-id');
+                cb.checked = studentData[taskId] === true;
+            });
+        }
+
+        function updateDashboard() {
+            students.forEach((student, index) => {
+                const studentId = `s${index + 1}`;
+                const studentData = globalData[studentId] || {};
+                const track = tracks[index];
+                let completedCount = 0;
+                
+                for (let year = startYear; year <= endYear; year++) {
+                    papers.forEach((paper, pIndex) => {
+                        const taskId = `${year}_p${pIndex}`;
+                        const indicator = document.getElementById(`ind-${studentId}-${taskId}`);
+                        if(indicator) {
+                            if(studentData[taskId] === true) {
+                                indicator.classList.add('done');
+                                completedCount++;
+                            } else {
+                                indicator.classList.remove('done');
+                            }
+                        }
+                    });
+                }
+
+                const completionRate = completedCount / totalTasks; 
+                const currentBottom = 10 + (completionRate * 75);
+                const currentLeft = track.startX + (completionRate * (track.endX - track.startX));
+
+                let currentEmoji = '😴';
+                if (completedCount === 0) {
+                    currentEmoji = '😴';
+                } else if (completionRate === 1) {
+                    currentEmoji = '👑'; 
+                } else if (completionRate > 0.7) {
+                    currentEmoji = (index % 2 === 0) ? '🧗‍♂️' : '🧗‍♀️'; 
+                } else if (completionRate > 0.3) {
+                    currentEmoji = (index % 2 === 0) ? '🏃‍♂️' : '🏃‍♀️'; 
+                } else {
+                    currentEmoji = (index % 2 === 0) ? '🚶‍♂️' : '🚶‍♀️'; 
+                }
+
+                const avatar = document.getElementById(`avatar-${studentId}`);
+                const emojiSpan = document.getElementById(`emoji-${studentId}`);
+                if (avatar && emojiSpan) {
+                    avatar.style.bottom = `${currentBottom}%`;
+                    avatar.style.left = `${currentLeft}%`;
+                    emojiSpan.innerText = currentEmoji;
+                }
+            });
+        }
+
+        function listenToData() {
+            // 【重要修改】：監聽 m1_progress 數據
+            const progressRef = ref(db, 'm1_progress/');
+            onValue(progressRef, (snapshot) => {
+                const data = snapshot.val();
+                if(data) {
+                    globalData = data;
+                    updateDashboard();
+                    if(currentStudent) loadPersonalChecklist();
+                }
+            });
+        }
+
+        window.onload = () => {
+            initUI();
+            listenToData();
+        };
+    </script>
+</head>
+<body>
+
+<div class="container">
+    <h1>🏆 2025-26 M1 HKDSE Past Paper 挑戰 (2012-2025)</h1>
+    
+    <div class="mountain-area">
+        <div class="mountain-shape"></div>
+        <div class="peak-flag">
+            <span class="flag-icon">🚩</span>
+            <span class="flag-label">5** 巔峰</span>
+        </div>
+        <svg class="tracks-svg" id="tracks-svg"></svg>
+        <div class="camp-line camp-l5"><span class="camp-badge">🔥 Level 5 衝頂挑戰營 (70% 進度)</span></div>
+        <div class="camp-line camp-l4"><span class="camp-badge">🪵 Level 4 半山大本營 (30% 進度)</span></div>
+        <div class="camp-line camp-l2"><span class="camp-badge">⛺ Level 2 登山口起步點</span></div>
+        <div id="mountain-avatars"></div>
+    </div>
+
+    <div class="dashboard">
+        <h2>📊 M1 全體同學進度表</h2>
+        <p style="text-align:center; font-size:0.9em; color:#7f8c8d;">(提示：電腦版將滑鼠停留在方格上可查看年份及卷名，綠色代表已完成)</p>
+        <div class="dashboard-table-container">
+            <div id="dashboard-content"></div>
+        </div>
+    </div>
+
+    <div class="selector-area">
+        <h2>請選擇你的名字以更新進度</h2>
+        <select id="student-select">
+            <option value="">-- 點擊這裡選擇 --</option>
+        </select>
+    </div>
+
+    <div id="checklist-container" class="checklist-container">
+        <h2>📝 你的 M1 操卷清單</h2>
+        <p style="text-align:center; color:#7f8c8d;">(系統會即時儲存，打剔後上面嘅方格會變綠，你的公仔亦會進化並向山頂匯聚！)</p>
+        <div id="checklist-content"></div>
+    </div>
+</div>
+
+</body>
+</html>
