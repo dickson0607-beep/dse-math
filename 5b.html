@@ -182,4 +182,352 @@
         .student-name-label { width: 80px; font-weight: bold; flex-shrink: 0; font-size: 1.1em; }
         .student-progress-grid { display: flex; gap: 12px; }
         .year-block { display: flex; flex-direction: column; align-items: center; }
-        .year-label { font-size
+        .year-label { font-size: 0.8em; color: #7f8c8d; margin-bottom: 4px; font-weight: bold; }
+        .paper-indicators { display: flex; gap: 3px; }
+        .indicator { width: 14px; height: 14px; background-color: #ecf0f1; border: 1px solid #bdc3c7; border-radius: 2px; cursor: help; }
+        .indicator.done { background-color: #2ecc71; border-color: #27ae60; }
+
+        /* 個人選擇器及清單樣式 */
+        .selector-area {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-top: 20px;
+            border-top: 2px dashed #bdc3c7;
+        }
+        select {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            min-width: 200px;
+        }
+        
+        .checklist-container { display: none; }
+        .year-section {
+            margin-bottom: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .year-title {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 8px 15px;
+            margin: 0;
+            font-size: 1.1em;
+        }
+        .papers-grid {
+            display: flex;
+            justify-content: space-between; 
+            align-items: center;
+            padding: 12px 15px;
+            background: #fafafa;
+        }
+        .paper-item {
+            flex: 1; 
+            display: flex;
+            align-items: center;
+            font-size: 1em;
+            white-space: nowrap;
+        }
+        .paper-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        /* 手機版適應 */
+        @media (max-width: 768px) {
+            .papers-grid { flex-wrap: wrap; gap: 10px; }
+            .paper-item { flex: 1 1 45%; } 
+            .mountain-area { height: 350px; }
+        }
+    </style>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+        // 共用相同的 Firebase 設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyCDbGoHv0KVG3WNqED-LIYI_mH6wveVV68",
+            authDomain: "hkdse-pastpaper-record.firebaseapp.com",
+            databaseURL: "https://hkdse-pastpaper-record-default-rtdb.firebaseio.com",
+            projectId: "hkdse-pastpaper-record",
+            storageBucket: "hkdse-pastpaper-record.firebasestorage.app",
+            messagingSenderId: "529936340815",
+            appId: "1:529936340815:web:169fbbbdf5c7af4500973a"
+        };
+
+        // 5B 學生名單 (22人)
+        const students = [
+            "徐海晴", "方影桐", "李思婷", "李穎潼", "吳紫瑜", "鄧嘉晴",
+            "謝曉彤", "王靜雯", "黃婕婕", "黃恩姸", "葉俊宏", "翟紫樑",
+            "蔡子謙", "林浩信", "李柏璋", "李泳權", "梁賢志", "李鑑譽",
+            "梁建豪", "司徒亮", "黃遠騏", "周煜"
+        ];
+
+        const startYear = 2012;
+        const endYear = 2025;
+        const papers = ['Paper 1 (A1A2)', 'Paper 1 (B)', 'Paper 2 (A)', 'Paper 2 (B)'];
+        const totalTasks = (endYear - startYear + 1) * papers.length; // 共 56 份卷
+
+        // 初始化 Firebase
+        const app = initializeApp(firebaseConfig); 
+        const db = getDatabase(app);
+        
+        let currentStudent = "";
+        let globalData = {}; 
+
+        // 跑道起點與終點設定
+        const tracks = [];
+
+        function initUI() {
+            const dashboard = document.getElementById('dashboard-content');
+            const select = document.getElementById('student-select');
+            const checklist = document.getElementById('checklist-content');
+            const mountainAvatars = document.getElementById('mountain-avatars');
+            const tracksSvg = document.getElementById('tracks-svg');
+
+            // 計算跑道線 (山腳平均分開，山頂匯聚至50%)
+            students.forEach((student, index) => {
+                const startX = 5 + (index * (90 / (students.length - 1)));
+                const endX = 50; 
+                tracks.push({ startX, endX });
+            });
+
+            // 繪製跑道線
+            let svgLinesHTML = '';
+            tracks.forEach(track => {
+                svgLinesHTML += `
+                    <line x1="${track.startX}%" y1="90%" x2="${track.endX}%" y2="15%" 
+                          stroke="rgba(255,255,255,0.4)" stroke-width="1.5" stroke-dasharray="4,4" />
+                `;
+            });
+            tracksSvg.innerHTML = svgLinesHTML;
+
+            students.forEach((student, index) => {
+                const studentId = `s${index + 1}`;
+                const track = tracks[index];
+                
+                // 建立初始公仔
+                mountainAvatars.innerHTML += `
+                    <div class="avatar" id="avatar-${studentId}" style="bottom: 10%; left: ${track.startX}%;">
+                        <span class="emoji" id="emoji-${studentId}">😴</span>
+                        <span class="name">${student}</span>
+                    </div>
+                `;
+
+                // 建立下拉選單
+                const option = document.createElement('option');
+                option.value = studentId;
+                option.textContent = student;
+                select.appendChild(option);
+
+                // 建立進度表方格
+                let yearsHTML = '';
+                for (let year = startYear; year <= endYear; year++) {
+                    let indicatorsHTML = '';
+                    papers.forEach((paper, pIndex) => {
+                        const taskId = `${year}_p${pIndex}`;
+                        indicatorsHTML += `<div class="indicator" id="ind-${studentId}-${taskId}" title="${year} ${paper}"></div>`;
+                    });
+                    
+                    yearsHTML += `
+                        <div class="year-block">
+                            <div class="year-label">${year}</div>
+                            <div class="paper-indicators">
+                                ${indicatorsHTML}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                dashboard.innerHTML += `
+                    <div class="student-dashboard-row" id="row-${studentId}">
+                        <div class="student-name-label">${student}</div>
+                        <div class="student-progress-grid">
+                            ${yearsHTML}
+                        </div>
+                    </div>
+                `;
+            });
+
+            // 建立個人操卷清單
+            for (let year = startYear; year <= endYear; year++) {
+                let paperHTML = '';
+                papers.forEach((paper, pIndex) => {
+                    const taskId = `${year}_p${pIndex}`;
+                    paperHTML += `
+                        <label class="paper-item">
+                            <input type="checkbox" data-task-id="${taskId}" onchange="toggleTask(this)">
+                            ${paper}
+                        </label>
+                    `;
+                });
+
+                checklist.innerHTML += `
+                    <div class="year-section">
+                        <h3 class="year-title">${year} 年</h3>
+                        <div class="papers-grid">
+                            ${paperHTML}
+                        </div>
+                    </div>
+                `;
+            }
+
+            select.addEventListener('change', (e) => {
+                currentStudent = e.target.value;
+                document.getElementById('checklist-container').style.display = currentStudent ? 'block' : 'none';
+                if(currentStudent) loadPersonalChecklist();
+            });
+        }
+
+        window.toggleTask = function(checkbox) {
+            if (!currentStudent) return;
+            const taskId = checkbox.getAttribute('data-task-id');
+            const isChecked = checkbox.checked;
+            
+            // 【重要修改】：寫入 5b_progress 避免與其他班級衝突
+            const taskRef = ref(db, '5b_progress/' + currentStudent + '/' + taskId);
+            set(taskRef, isChecked);
+
+            // 本地即時更新
+            if(!globalData[currentStudent]) globalData[currentStudent] = {};
+            globalData[currentStudent][taskId] = isChecked;
+            updateDashboard();
+        }
+
+        function loadPersonalChecklist() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            const studentData = globalData[currentStudent] || {};
+            checkboxes.forEach(cb => {
+                const taskId = cb.getAttribute('data-task-id');
+                cb.checked = studentData[taskId] === true;
+            });
+        }
+
+        // 核心更新邏輯：移動公仔坐標、變換進化 Emoji
+        function updateDashboard() {
+            students.forEach((student, index) => {
+                const studentId = `s${index + 1}`;
+                const studentData = globalData[studentId] || {};
+                const track = tracks[index];
+                let completedCount = 0;
+                
+                // 方格更新
+                for (let year = startYear; year <= endYear; year++) {
+                    papers.forEach((paper, pIndex) => {
+                        const taskId = `${year}_p${pIndex}`;
+                        const indicator = document.getElementById(`ind-${studentId}-${taskId}`);
+                        if(indicator) {
+                            if(studentData[taskId] === true) {
+                                indicator.classList.add('done');
+                                completedCount++;
+                            } else {
+                                indicator.classList.remove('done');
+                            }
+                        }
+                    });
+                }
+
+                const completionRate = completedCount / totalTasks; 
+                
+                // 計算最新坐標
+                const currentBottom = 10 + (completionRate * 75);
+                const currentLeft = track.startX + (completionRate * (track.endX - track.startX));
+
+                // 根據進度變換 Emoji
+                let currentEmoji = '😴';
+                if (completedCount === 0) {
+                    currentEmoji = '😴';
+                } else if (completionRate === 1) {
+                    currentEmoji = '👑'; 
+                } else if (completionRate > 0.7) {
+                    currentEmoji = (index % 2 === 0) ? '🧗‍♂️' : '🧗‍♀️'; 
+                } else if (completionRate > 0.3) {
+                    currentEmoji = (index % 2 === 0) ? '🏃‍♂️' : '🏃‍♀️'; 
+                } else {
+                    currentEmoji = (index % 2 === 0) ? '🚶‍♂️' : '🚶‍♀️'; 
+                }
+
+                const avatar = document.getElementById(`avatar-${studentId}`);
+                const emojiSpan = document.getElementById(`emoji-${studentId}`);
+                if (avatar && emojiSpan) {
+                    avatar.style.bottom = `${currentBottom}%`;
+                    avatar.style.left = `${currentLeft}%`;
+                    emojiSpan.innerText = currentEmoji;
+                }
+            });
+        }
+
+        // 監聽 Firebase 實時數據轉變
+        function listenToData() {
+            // 【重要修改】：監聽 5b_progress 數據
+            const progressRef = ref(db, '5b_progress/');
+            onValue(progressRef, (snapshot) => {
+                const data = snapshot.val();
+                if(data) {
+                    globalData = data;
+                    updateDashboard();
+                    if(currentStudent) loadPersonalChecklist();
+                }
+            });
+        }
+
+        window.onload = () => {
+            initUI();
+            listenToData();
+        };
+    </script>
+</head>
+<body>
+
+<div class="container">
+    <h1>🏆 2025-26 5B Math HKDSE Past Paper 挑戰 (2012-2025)</h1>
+    
+    <div class="mountain-area">
+        <div class="mountain-shape"></div>
+        
+        <div class="peak-flag">
+            <span class="flag-icon">🚩</span>
+            <span class="flag-label">5** 巔峰</span>
+        </div>
+        
+        <svg class="tracks-svg" id="tracks-svg"></svg>
+        
+        <div class="camp-line camp-l5"><span class="camp-badge">🔥 Level 5 衝頂挑戰營 (70% 進度)</span></div>
+        <div class="camp-line camp-l4"><span class="camp-badge">🪵 Level 4 半山大本營 (30% 進度)</span></div>
+        <div class="camp-line camp-l2"><span class="camp-badge">⛺ Level 2 登山口起步點</span></div>
+        
+        <div id="mountain-avatars">
+            </div>
+    </div>
+
+    <div class="dashboard">
+        <h2>📊 5B 全體同學進度表</h2>
+        <p style="text-align:center; font-size:0.9em; color:#7f8c8d;">(提示：電腦版將滑鼠停留在方格上可查看年份及卷名，綠色代表已完成)</p>
+        <div class="dashboard-table-container">
+            <div id="dashboard-content">
+                </div>
+        </div>
+    </div>
+
+    <div class="selector-area">
+        <h2>請選擇你的名字以更新進度</h2>
+        <select id="student-select">
+            <option value="">-- 點擊這裡選擇 --</option>
+        </select>
+    </div>
+
+    <div id="checklist-container" class="checklist-container">
+        <h2>📝 你的 5B 操卷清單</h2>
+        <p style="text-align:center; color:#7f8c8d;">(系統會即時儲存，打剔後上面嘅方格會變綠，你的公仔亦會進化並向山頂匯聚！)</p>
+        <div id="checklist-content">
+            </div>
+    </div>
+</div>
+
+</body>
+</html>
