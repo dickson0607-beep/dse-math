@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025-26 5B Math HKDSE Past Paper 挑戰 (2012-2025)</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --bg-color: #ecf0f1;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--primary-color);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1, h2 { text-align: center; color: var(--primary-color); }
+        
+        /* 攀山進度圖區域 (天藍色背景) */
+        .mountain-area {
+            position: relative;
+            width: 100%;
+            height: 450px;
+            background: linear-gradient(to top, #87CEEB, #f0f9ff);
+            border-radius: 8px;
+            margin-bottom: 30px;
+            overflow: hidden;
+            border: 2px solid #bdc3c7;
+        }
+        
+        /* 模擬富士山效果 (山頂白色，山腰山腳漸變深藍色) */
+        .mountain-shape {
+            position: absolute;
+            bottom: 0;
+            left: 5%;
+            width: 90%;
+            height: 85%;
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+            /* 頂端 15% 為純白積雪，隨後過渡至經典富士深藍色 */
+            background: linear-gradient(to bottom, 
+                #ffffff 0%, 
+                #ffffff 15%, 
+                #34495e 19%, 
+                #1e3c72 55%, 
+                #0f172a 100%
+            );
+            z-index: 2; 
+        }
+        
+        /* 山頂 5** 旗幟樣式 */
+        .peak-flag {
+            position: absolute;
+            top: 4%;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 12;
+        }
+        .flag-icon {
+            font-size: 34px;
+            line-height: 1;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+        .flag-label {
+            background: #e74c3c;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 3px 10px;
+            border-radius: 4px;
+            margin-top: -2px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            border: 1px solid #c0392b;
+            letter-spacing: 1px;
+        }
+        
+        /* 關卡營地橫線 */
+        .camp-line {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            border-top: 1px dashed rgba(255, 255, 255, 0.4);
+            display: flex;
+            justify-content: flex-start;
+            padding-left: 15px;
+            z-index: 10;
+        }
+        .camp-badge {
+            background: rgba(44, 62, 80, 0.85);
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 10px;
+            transform: translateY(-50%);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        /* 營地高度定義 */
+        .camp-l5 { top: 35%; }
+        .camp-l4 { top: 60%; }
+        .camp-l2 { top: 90%; }
+
+        /* SVG 斜線跑道畫布 */
+        .tracks-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* 同學公仔設定 */
+        .avatar {
+            position: absolute;
+            bottom: 10%; 
+            left: 50%;
+            transform: translate(-50%, 50%); 
+            text-align: center;
+            transition: all 1s cubic-bezier(0.25, 0.8, 0.25, 1); 
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .avatar .emoji { 
+            font-size: 26px; 
+            line-height: 1;
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+            transition: transform 0.3s ease;
+        }
+        .avatar:hover .emoji {
+            transform: scale(1.3);
+        }
+        .avatar .name { 
+            font-size: 11px; 
+            background: rgba(255,255,255,0.95); 
+            color: #2c3e50;
+            padding: 1px 4px; 
+            border-radius: 4px; 
+            white-space: nowrap; 
+            font-weight: bold;
+            margin-top: 2px;
+            border: 1px solid #7f8c8d;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        /* 全體同學進度表樣式 (方格矩陣) */
+        .dashboard {
+            margin-bottom: 40px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 5px solid var(--secondary-color);
+        }
+        .dashboard-table-container {
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+        .student-dashboard-row {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+            min-width: 900px; 
+        }
+        .student-dashboard-row:hover { background-color: #f1f2f6; }
+        .student-name-label { width: 80px; font-weight: bold; flex-shrink: 0; font-size: 1.1em; }
+        .student-progress-grid { display: flex; gap: 12px; }
+        .year-block { display: flex; flex-direction: column; align-items: center; }
+        .year-label { font-size
